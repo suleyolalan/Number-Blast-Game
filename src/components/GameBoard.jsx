@@ -69,7 +69,8 @@ const GameBoard = ({ matrix = [], selectedCells = [], onCellPress }) => {
             // Bu hücrenin değerini matrisden al
             // ?. → matrix[rowIdx] yoksa hata vermez, undefined döner
             // ?? null → undefined ise null kullan (Block boş hücre çizer)
-            const value = matrix[rowIdx]?.[colIdx] ?? null;
+            const cell = matrix[rowIdx]?.[colIdx] ?? null;
+            const value = cell && typeof cell === 'object' ? cell.number : cell;
 
             // Bu hücre seçili mi?
             const selected = isSelected(rowIdx, colIdx);
@@ -113,3 +114,4 @@ const styles = StyleSheet.create({
 export default GameBoard;
 // ROWS ve COLS'u dışa aktar — App.jsx ve diğer dosyalar kullanabilsin
 export { CELL_SIZE, COLS, ROWS };
+
