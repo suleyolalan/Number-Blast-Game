@@ -1,14 +1,6 @@
-// ============================================================
-// app/index.js — Ana Oyun Dosyası
-//
-// Kişi 1 → logic/
-// Kişi 2 → components/ 
-// Kişi 3 → rules/
-// Kişi 4 → matrix/
-// ============================================================
-
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -16,321 +8,240 @@ import {
   View,
 } from 'react-native';
 
-// ── Kişi 2: Görsel bileşenler ───────────
 import GameBoard from '../src/components/GameBoard';
 import Header from '../src/components/Header';
 import Leaderboard from '../src/components/Leaderboard';
 import ScoreBoard from '../src/components/ScoreBoard';
 
-// ── Kişi 1: Logic ──────────────────────────────────────────
-// targetNumber.js → refreshTarget grid'e bakarak ulaşılabilir hedef üretir
-import { refreshTarget } from '../src/logic/targetNumber';
-// selectionChecker.js → validateMove hamle kontrolü, calculateScore puan hesabı
-import { calculateScore, validateMove } from '../src/logic/selectionChecker';
-// wrongMoveCounter.js → handleWrongMove sayacı artırır + ceza kontrol eder
-import { createWrongMoveCounter, handleWrongMove } from '../src/logic/wrongMoveCounter';
-
-// ── Kişi 3: Rules ──────────────────────────────────────────
-// selectionChain.js → addBlockToChain zincire blok ekler, resetChain sıfırlar
-import { addBlockToChain, resetChain } from '../src/rules/selectionChain';
-// blockLimitRule.js → isChainLengthValid min2 max4 kontrolü
 import { isChainLengthValid } from '../src/rules/blockLimitRule';
+import { addBlockToChain, resetChain } from '../src/rules/selectionChain';
 
-// ── Kişi 4: Matrix ─────────────────────────────────────────
-// matrixEngine.js → createInitialMatrix, removeBlocksAndApplyGravity, isGameOver
 import {
+  calculateSelectionScore,
+  COLS,
   createInitialMatrix,
-  isGameOver,
+  getNextFallingBlock,
+  moveBlockDown,
+  placeBlock,
   removeBlocksAndApplyGravity,
+  validateMove,
 } from '../src/matrix/matrixEngine';
-// blockSpawner.js → spawnFullRow ceza/düşme için tam satır üretir
-import { spawnFullRow } from '../src/matrix/blockSpawner';
 
-// ── Sabitler ────────────────────────────────────────────────
-// Vize aşamasında blok düşme süresi sabittir (5 saniye)
-
-const FIXED_DROP_INTERVAL = 5;
+import { getDropInterval, getDropIntervalSeconds } from '../src/logic/speedManager';
+import { refreshTarget } from '../src/logic/targetNumber';
+import { createWrongMoveCounter, handleWrongMove } from '../src/logic/wrongMoveCounter';
+import { spawnRowOfFallingBlocks } from '../src/matrix/blockSpawner';
 
 export default function Page() {
-
-  // ── STATE'LER ───────────────────────────────────────────
-
-  // Oyun matrisi — 4. kişinin createInitialMatrix() ile başlar
-  // Alt 3 satır blok dolu, üstü null (boş)
   const [matrix, setMatrix] = useState(() => createInitialMatrix());
-
-  // Seçim zinciri — 3. kişinin selectionChain yapısını kullanır
-  // Her eleman 4. kişinin blok objesi: { row, col, number, color, id, ... }
+  const [fallingBlocks, setFallingBlocks] = useState(() =>
+    Array.from({ length: COLS }, (_, col) => getNextFallingBlock(col))
+  );
   const [chain, setChain] = useState([]);
-
-  // Puan ve en yüksek skor
-  const [score, setScore]         = useState(0);
+  const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
-
-  // Hedef sayı — 1. kişinin refreshTarget(grid) ile üretilir
-  const [targetNumber, setTargetNumber] = useState(0);
-
-  // Yanlış hamle sayacı — 1. kişinin obje yapısı: { count, isPenalty }
-  const [wrongCounter, setWrongCounter] = useState(() => createWrongMoveCounter());
-
-  // Son hamlede kazanılan puan (ScoreBoard gösterimi için)
-  const [lastMovePoints, setLastMovePoints] = useState(0);
-
-  // Toplam doğru hamle sayısı
   const [totalMoves, setTotalMoves] = useState(0);
-
-  // Liderlik tablosu modal açık mı?
-  const [leaderboardVisible, setLeaderboardVisible] = useState(false);
-
-  // Kaydedilen skor listesi
+  const [lastPoints, setLastPoints] = useState(0);
+  const [targetNumber, setTargetNumber] = useState(() => {
+    const m = createInitialMatrix();
+    const t = refreshTarget(m);
+    return typeof t === 'number' ? t : Number(t) || 2;
+  });
+  const [wrongCounter, setWrongCounter] = useState(() => createWrongMoveCounter());
   const [scores, setScores] = useState([]);
-
-  // Oyun bitti mi?
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [gameOver, setGameOver] = useState(false);
 
-  // Blok düşme zamanlayıcısı — temizleyebilmek için ref'te tutuyoruz
   const dropTimer = useRef(null);
+  const matrixRef = useRef(matrix);
+  const fallingRef = useRef(fallingBlocks);
+  const gameOverRef = useRef(false);
+  const scoreRef = useRef(0);
 
-  // ── İLK AÇILIŞTA HEDEF SAYI ÜRET ───────────────────────
-  // Matrix hazır olduktan sonra refreshTarget çağrılır
-  useEffect(() => {
-    setTargetNumber(refreshTarget(matrix));
-  }, []);
+  useEffect(() => { matrixRef.current = matrix; }, [matrix]);
+  useEffect(() => { fallingRef.current = fallingBlocks; }, [fallingBlocks]);
+  useEffect(() => { scoreRef.current = score; }, [score]);
 
-  // ── BLOK DÜŞME ZAMANLAYICISI ────────────────────────────
-  // Her FIXED_DROP_INTERVAL saniyede bir yukarıdan yeni satır iner
-  useEffect(() => {
-    if (gameOver) return;
+const doGameOver = useCallback(() => {
+  if (gameOverRef.current) return;
+  gameOverRef.current = true;
+  clearInterval(dropTimer.current);
+  setGameOver(true);
+  setScores(prev => [...prev, {
+    name: 'Oyuncu',
+    score: scoreRef.current,
+    date: new Date().toLocaleDateString('tr-TR'),
+  }]);
+  Alert.alert('Oyun Bitti!', `Puanın: ${scoreRef.current}`, [
+    { text: 'Tamam', onPress: () => setShowLeaderboard(true) },
+  ]);
+}, []);
 
-    if (dropTimer.current) clearInterval(dropTimer.current);
+  const tick = useCallback(() => {
+    const prevMatrix = matrixRef.current;
+    const prevFalling = fallingRef.current;
+    let newMatrix = prevMatrix.map(r => [...r]);
+    const nextFalling = [];
+    let shouldGameOver = false;
 
-    dropTimer.current = setInterval(() => {
-      setMatrix(prev => {
-        // 4. kişinin spawnFullRow ile yeni bir satır üret
-        const newRow = spawnFullRow(0);
+    for (let col = 0; col < COLS; col++) {
+      const fb = prevFalling[col];
+      if (!fb) { nextFalling.push(getNextFallingBlock(col)); continue; }
 
-        // Mevcut matrisi bir satır aşağı kaydır, en üste yeni satırı ekle
-        const shifted = [newRow, ...prev.slice(0, prev.length - 1)];
+      const { block, landed } = moveBlockDown(newMatrix, fb);
 
-        // Oyun sonu kontrolü: 4. kişinin isGameOver (0. satırda dolu hücre var mı)
-        if (isGameOver(shifted)) {
-          clearInterval(dropTimer.current);
-          setGameOver(true);
-          setScores(s => [...s, {
-            name: 'Oyuncu',
-            score,
-            date: new Date().toLocaleDateString('tr-TR'),
-          }]);
-          setLeaderboardVisible(true);
-        }
-
-        return shifted;
-      });
-    }, FIXED_DROP_INTERVAL * 1000);
-
-    return () => clearInterval(dropTimer.current);
-  }, [gameOver]);
-
-  // ── HÜCREYE BASILINCA ────────────────────────────────────
-  const handleCellPress = (row, col) => {
-    if (gameOver) return;
-
-    // Matristeki gerçek blok nesnesini al (4. kişinin { row, col, number, id, ... } objesi)
-    const block = matrix[row]?.[col];
-    if (!block) return;
-
-    // Zincirin sonundaki bloğa tekrar basılırsa → geri al
-    const lastBlock = chain[chain.length - 1];
-    if (lastBlock && lastBlock.row === row && lastBlock.col === col) {
-      setChain(prev => prev.slice(0, -1));
-      return;
-    }
-
-    // 3. kişinin addBlockToChain: komşu mu? limit aşıldı mı? kontrol eder
-    // { success: bool, chain: [...], reason?: string } döndürür
-    const result = addBlockToChain(block, chain);
-    if (result.success) {
-      setChain(result.chain);
-      setLastMovePoints(0);
-    }
-  };
-
-  // ── ONAYLA BUTONUNA BASILINCA ────────────────────────────
-  const handleConfirm = () => {
-    // 3. kişinin isChainLengthValid: en az 2, en fazla 4 blok seçili mi?
-    if (!isChainLengthValid(chain)) return;
-
-    // 1. kişinin validateMove için blokları { row, col, value } formatına çevir
-    // (selectionChecker.js 'value' alanını kullanıyor, 4. kişinin blok objesi 'number' kullanıyor)
-    const blocksForValidation = chain.map(b => ({
-      row:   b.row,
-      col:   b.col,
-      value: b.number,
-    }));
-
-    // 1. kişinin validateMove: { isValid, sum, reason } döndürür
-    const result = validateMove(blocksForValidation, targetNumber);
-
-    if (result.isValid) {
-      // ── DOĞRU HAMLE ──
-
-      // 1. kişinin calculateScore ile kazanılan puanı hesapla
-      const earned   = calculateScore(blocksForValidation);
-      const newScore = score + earned;
-
-      setLastMovePoints(earned);
-      setScore(newScore);
-      setTotalMoves(t => t + 1);
-      if (newScore > highScore) setHighScore(newScore);
-
-      // 4. kişinin removeBlocksAndApplyGravity: seçili blokları sil, gravity uygula
-      const updatedMatrix = removeBlocksAndApplyGravity(matrix, chain);
-      setMatrix(updatedMatrix);
-
-      // Zinciri sıfırla, yanlış sayacını sıfırla, yeni hedef üret
-      setChain(resetChain());
-      setWrongCounter(createWrongMoveCounter());
-      setTargetNumber(refreshTarget(updatedMatrix));
-
-    } else {
-      // ── YANLIŞ HAMLE ──
-
-      // 1. kişinin handleWrongMove: { counter, shouldPenalize } döndürür
-      const { counter, shouldPenalize } = handleWrongMove(wrongCounter);
-      setWrongCounter(counter);
-      setChain(resetChain());
-
-      // 3 yanlışta ceza: yukarıdan yeni satır iner
-      if (shouldPenalize) {
-        setMatrix(prev => {
-          const newRow = spawnFullRow(0);
-          return [newRow, ...prev.slice(0, prev.length - 1)];
-        });
-        setWrongCounter(createWrongMoveCounter()); // sayacı sıfırla
+      if (landed) {
+        const result = placeBlock(newMatrix, block);
+        newMatrix = result.matrix;
+        if (result.gameOver) { shouldGameOver = true; nextFalling.push(null); }
+        else nextFalling.push(getNextFallingBlock(col));
+      } else {
+        nextFalling.push(block);
       }
     }
-  };
 
-  // ── İPTAL BUTONUNA BASILINCA ────────────────────────────
-  const handleCancel = () => {
-    setChain(resetChain());
-    setLastMovePoints(0);
-  };
+    setMatrix(newMatrix);
+    setFallingBlocks(nextFalling);
+    if (shouldGameOver) doGameOver();
+  }, [doGameOver]);
 
-  // ── YENİDEN BAŞLAT ───────────────────────────────────────
-  const handleRestart = () => {
-    const freshMatrix = createInitialMatrix();
-    setMatrix(freshMatrix);
+  const dropInterval = getDropInterval(score);
+
+  useEffect(() => {
+    if (gameOver) return;
+    clearInterval(dropTimer.current);
+    dropTimer.current = setInterval(tick, dropInterval);
+    return () => clearInterval(dropTimer.current);
+  }, [dropInterval, gameOver, tick]);
+
+
+
+  const handleCellPress = useCallback((row, col) => {
+    if (gameOver) return;
+    const cell = matrixRef.current[row]?.[col];
+    if (!cell) return;
+    const block = typeof cell === 'object'
+      ? cell
+      : { row, col, number: cell, value: cell, id: `${row}_${col}` };
+    const result = addBlockToChain(block, chain);
+    if (result.success) setChain(result.chain);
+  }, [chain, gameOver]);
+
+  const handleConfirm = useCallback(() => {
+    if (!isChainLengthValid(chain)) return;
+    const { isValid } = validateMove(chain, targetNumber);
+
+    if (isValid) {
+      const points = calculateSelectionScore(chain);
+      const newScore = score + points;
+      const newMatrix = removeBlocksAndApplyGravity(matrix, chain);
+      const newTarget = refreshTarget(newMatrix);
+
+      setMatrix(newMatrix);
+      setScore(newScore);
+      setLastPoints(points);
+      setTotalMoves(t => t + 1);
+      setTargetNumber(typeof newTarget === 'number' ? newTarget : Number(newTarget) || 2);
+      setChain(resetChain());
+      setWrongCounter(createWrongMoveCounter());
+      if (newScore > highScore) setHighScore(newScore);
+      setTimeout(() => setLastPoints(0), 2000);
+    } else {
+      const result = handleWrongMove(wrongCounter);
+      setWrongCounter(result.counter);
+      setChain(resetChain());
+      if (result.shouldPenalize) {
+        setFallingBlocks(spawnRowOfFallingBlocks(COLS));
+      }
+    }
+  }, [chain, targetNumber, matrix, score, highScore, wrongCounter]);
+
+  const handleNewGame = useCallback(() => {
+    const newMatrix = createInitialMatrix();
+    gameOverRef.current = false;
+    setMatrix(newMatrix);
+    setFallingBlocks(Array.from({ length: COLS }, (_, col) => getNextFallingBlock(col)));
     setChain(resetChain());
     setScore(0);
-    setTargetNumber(refreshTarget(freshMatrix));
-    setWrongCounter(createWrongMoveCounter());
-    setLastMovePoints(0);
     setTotalMoves(0);
+    setLastPoints(0);
+    const t = refreshTarget(newMatrix);
+    setTargetNumber(typeof t === 'number' ? t : Number(t) || 2);
+    setWrongCounter(createWrongMoveCounter());
     setGameOver(false);
-    setLeaderboardVisible(false);
-  };
+    setShowLeaderboard(false);
+  }, []);
 
-  // ── RENDER İÇİN YARDIMCI VERİLER ────────────────────────
-
-  // Header'a wrongCount sayısı lazım (obje değil sayı)
-  const wrongCount = wrongCounter.count;
-
-  // GameBoard [[row, col]] formatında bekliyor
   const selectedCells = chain.map(b => [b.row, b.col]);
+  const selectedValues = chain.map(b => b.number ?? b.value ?? 0);
 
-  // ScoreBoard seçili blokların sayı değerlerini bekliyor
-  // 4. kişinin blok objesi 'number' alanını kullanıyor
-  const selectedValues = chain.map(b => b.number);
-
-  // ── RENDER ───────────────────────────────────────────────
   return (
-    <SafeAreaView style={styles.container}>
-
-      {/* Üst bilgi barı */}
+    <SafeAreaView style={styles.root}>
       <Header
         score={score}
         highScore={highScore}
         targetNumber={targetNumber}
-        wrongCount={wrongCount}
-        dropInterval={FIXED_DROP_INTERVAL}
+        wrongCount={wrongCounter.count}
+        dropInterval={getDropIntervalSeconds(score)}
       />
-
-      {/* 8×10 oyun tahtası */}
       <GameBoard
         matrix={matrix}
+        fallingBlocks={fallingBlocks}
         selectedCells={selectedCells}
         onCellPress={handleCellPress}
       />
-
-      {/* Alt puan paneli */}
       <ScoreBoard
         score={score}
+        lastMovePoints={lastPoints}
         selectedValues={selectedValues}
         totalMoves={totalMoves}
-        lastMovePoints={lastMovePoints}
       />
-
-      {/* Onayla / İptal butonları */}
       <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
-          <Text style={styles.cancelText}>iptal</Text>
+        <TouchableOpacity
+          style={[styles.btn, styles.cancelBtn]}
+          onPress={() => setChain(resetChain())}
+          disabled={chain.length === 0}
+        >
+          <Text style={styles.btnText}>✕ İptal</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.confirmBtn} onPress={handleConfirm}>
-          <Text style={styles.confirmText}>onayla ✓</Text>
+        <TouchableOpacity
+          style={[styles.btn, styles.confirmBtn, chain.length < 2 && styles.btnDisabled]}
+          onPress={handleConfirm}
+          disabled={chain.length < 2}
+        >
+          <Text style={styles.btnText}>✓ Onayla ({chain.length})</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.btn, styles.leaderBtn]}
+          onPress={() => setShowLeaderboard(true)}
+        >
+          <Text style={styles.btnText}>🏆</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.btn, styles.newGameBtn]}
+          onPress={handleNewGame}
+        >
+          <Text style={styles.btnText}>↺</Text>
         </TouchableOpacity>
       </View>
-
-      {/* Liderlik tablosu — oyun bitince otomatik açılır */}
       <Leaderboard
-        visible={leaderboardVisible}
         scores={scores}
         currentScore={score}
-        onClose={() => {
-          setLeaderboardVisible(false);
-          handleRestart();
-        }}
+        visible={showLeaderboard}
+        onClose={() => { setShowLeaderboard(false); if (gameOver) handleNewGame(); }}
       />
-
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f0f23',
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 10,
-    padding: 12,
-    backgroundColor: '#16213e',
-  },
-  cancelBtn: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-  },
-  cancelText: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  confirmBtn: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#2ecc71',
-    alignItems: 'center',
-  },
-  confirmText: {
-    color: '#0a2a1a',
-    fontSize: 14,
-    fontWeight: '700',
-  },
+  root: { flex: 1, backgroundColor: '#0f0f23' },
+  buttonRow: { flexDirection: 'row', padding: 30, gap: 8, backgroundColor: '#16213e' },
+  btn: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+  confirmBtn: { backgroundColor: '#2ecc71' },
+  cancelBtn: { backgroundColor: '#e74c3c' },
+  leaderBtn: { flex: 0, paddingHorizontal: 16, backgroundColor: '#f39c12' },
+  newGameBtn: { flex: 0, paddingHorizontal: 16, backgroundColor: '#9b59b6' },
+  btnDisabled: { backgroundColor: '#444', opacity: 0.5 },
+  btnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });

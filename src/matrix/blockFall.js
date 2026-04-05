@@ -1,9 +1,9 @@
 /**
- * Blokların yukarıdan aşağıya doğru düşme ve yerleşme mantığını yönetir.
+ * Blokların yukarıdan aşağıya doğru düşme ve yerleşme mantığını yönetir.*/
  
 
-import { COLS, ROWS } from './matrixEngine';
 import { spawnBlockForColumn } from './blockSpawner';
+import { COLS, ROWS } from './matrixEngine';
 
 /**
  * Belirli bir sütunda, verilen satır konumundan itibaren bir bloğun
@@ -39,7 +39,7 @@ export function findLandingRow(matrix, col, fromRow) {
  */
 export function landBlock(matrix, fallingBlock) {
   const { col } = fallingBlock;
-  const landingRow = findLandingRow(matrix, col, -1);
+  const landingRow = fallingBlock.row;
 
   // Yerleşecek yer yok → sütun tamamen dolu → oyun sonu
   if (landingRow < 0) {
@@ -51,7 +51,7 @@ export function landBlock(matrix, fallingBlock) {
   updatedMatrix[landingRow][col] = updatedBlock;
 
   // Sütunun ilk satırı (0. satır) doldu mu → oyun sonu koşulu
-  const gameOver = updatedMatrix[0][col] !== null;
+  const gameOver = landingRow === 0;
 
   return { matrix: updatedMatrix, landed: true, gameOver };
 }

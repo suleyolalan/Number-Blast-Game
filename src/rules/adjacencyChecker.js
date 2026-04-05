@@ -26,6 +26,5 @@ export function isAdjacent(blockA, blockB) {
 export function isAdjacentToChain(newBlock, chain) {
   if (chain.length === 0) return true;
 
-  const lastBlock = chain[chain.length - 1];
-  return isAdjacent(newBlock, lastBlock);
+  return chain.some(block => isAdjacent(newBlock, block));
 }
