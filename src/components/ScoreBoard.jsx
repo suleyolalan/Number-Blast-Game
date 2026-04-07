@@ -1,18 +1,9 @@
 // ============================================================
 // ScoreBoard.jsx — Anlık oyun skoru özet paneli
-//
-// Oyun ekranının alt kısmında yer alır.
-// Seçim yapılırken toplamı gösterir,
-// hamle yapılınca kazanılan puanı flashler.
 // ============================================================
 
 import { StyleSheet, Text, View } from 'react-native';
 
-// -------------------------------------------------------
-// Puan tablosu sabitleri — PDF'ten alınan değerler
-// Her sayının kaç puan değerinde olduğunu tanımlar.
-// Örnek: 5 sayılı blok = 7 puan
-// -------------------------------------------------------
 const SCORE_TABLE = {
   1: 1,
   2: 2,
@@ -26,14 +17,12 @@ const SCORE_TABLE = {
 };
 
 // -------------------------------------------------------
-// ScoreBoard bileşeni
-//
-// Props:
-//   score          → oyuncunun toplam puanı
-//   lastMovePoints → son hamlede kazanılan puan (geçici gösterim)
-//   selectedValues → seçili blokların sayı değerleri listesi
+// ScoreBoard bileşenleri
+//   score          : oyuncunun toplam puanı
+//   lastMovePoints : son hamlede kazanılan puan (geçici gösterim)
+//   selectedValues : seçili blokların sayı değerleri listesi
 //                    Örnek: [3, 5, 7] (bu hamle yapılırsa +19 puan)
-//   totalMoves     → toplam doğru hamle sayısı
+//   totalMoves     : toplam doğru hamle sayısı
 // -------------------------------------------------------
 const ScoreBoard = ({
   score = 0,
@@ -44,7 +33,7 @@ const ScoreBoard = ({
 
   // -------------------------------------------------------
   // Seçili blokların anlık puan toplamını hesapla.
-  // reduce → diziyi tek bir değere indirgeme fonksiyonu.
+  // reduce : diziyi tek bir değere indirgeme fonksiyonu.
   // Örnek: [3, 5, 7] → 3+7+12 = 22
   // -------------------------------------------------------
   const selectionPoints = selectedValues.reduce(
@@ -54,7 +43,7 @@ const ScoreBoard = ({
 
   // -------------------------------------------------------
   // Sonraki hız artışına kaç puan kaldığını hesapla.
-  // Her 100 puanda bir hız artar (PDF'te belirtildi).
+  // Her 100 puanda bir hız artar.
   // Örnek: 247 puan → bir sonraki eşik 300, kalan 53 puan
   // -------------------------------------------------------
   const currentTier = Math.floor(score / 100); // kaçıncı hız kademesindeyiz
@@ -70,7 +59,7 @@ const ScoreBoard = ({
         <View style={styles.selectionRow}>
           <Text style={styles.selectionLabel}>seçim puanı:</Text>
 
-          {/* Kazanılacak puan — sarı renk dikkat çeker */}
+          {/* Kazanılacak puan — sarı renk ile kullanıcının dikkatini çekmeye çalıştım */}
           <Text style={styles.selectionPoints}>+{selectionPoints}</Text>
 
           {/* Seçili sayıları küçük göster: "3 + 5 + 7" */}
@@ -111,7 +100,7 @@ const ScoreBoard = ({
               <View
                 style={[
                   styles.progressFill,
-                  // progressToNext: 0-99 arası → yüzdeye çevir
+                  // progressToNext: 0-99 arası - yüzdeye çevir
                   { flex: progressToNext / 100 },
                 ]}
               />
@@ -134,6 +123,7 @@ const ScoreBoard = ({
 // -------------------------------------------------------
 // Stiller
 // -------------------------------------------------------
+
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#16213e',
@@ -162,7 +152,7 @@ const styles = StyleSheet.create({
   selectionPoints: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#f39c12', // altın sarısı — dikkat çeker
+    color: '#f39c12', // sarı kısım
   },
   selectionValues: {
     fontSize: 11,
@@ -227,3 +217,4 @@ const styles = StyleSheet.create({
 
 export default ScoreBoard;
 export { SCORE_TABLE };
+

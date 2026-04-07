@@ -6,23 +6,23 @@
 // ============================================================
 
 import {
-    Modal,
-    ScrollView, // liste uzunsa kaydırılabilir olsun
-    StyleSheet,
-    Text, // React Native'de modal = üste açılan pencere
-    TouchableOpacity,
-    View,
+  Modal,
+  ScrollView, // liste uzunsa kaydırılabilir olsun
+  StyleSheet,
+  Text, // React Native'de modal = üste açılan pencere
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 // -------------------------------------------------------
-// Leaderboard bileşeni
+// Leaderboard bileşenleri
 //
 // Props:
-//   scores       → skor listesi. Her eleman:
+//   scores       : skor listesi. Her eleman:
 //                  { name: 'Ali', score: 250, date: '2025-05-01' }
-//   currentScore → bu oyunda kazanılan puan (listedeyse vurgular)
-//   visible      → modal açık mı? (true/false)
-//   onClose      → kapat butonuna basılınca çağrılır
+//   currentScore : bu oyunda kazanılan puan (listedeyse vurgular)
+//   visible      : modal açık mı? (true/false)
+//   onClose      : kapat butonuna basılınca çağrılır
 // -------------------------------------------------------
 const Leaderboard = ({
   scores = [],
@@ -33,9 +33,9 @@ const Leaderboard = ({
 
   // -------------------------------------------------------
   // Skorları yüksekten düşüğe sırala, sadece ilk 10'u al.
-  // spread operator [...scores] → orijinal diziyi bozmamak için kopya al
-  // sort → b.score - a.score → büyükten küçüğe sıralar
-  // slice(0, 10) → ilk 10 elemanı al
+  // spread operator [...scores] : orijinal diziyi bozmamak için kopya al
+  // sort → b.score - a.score : büyükten küçüğe sıralar
+  // slice(0, 10) : ilk 10 elemanı al
   // -------------------------------------------------------
   const sorted = [...scores]
     .sort((a, b) => b.score - a.score)
@@ -52,9 +52,8 @@ const Leaderboard = ({
   };
 
   return (
-    // Modal — React Native'de üste açılan tam ekran katman
-    // transparent → arka planı siyah/yarı saydam yapmak için
-    // animationType → açılış animasyonu
+    // transparent : arka planı siyah/yarı saydam yapmak için
+    // animationType : açılış animasyonu
     <Modal
       visible={visible}
       transparent
@@ -116,7 +115,7 @@ const Leaderboard = ({
                       idx % 2 !== 0 && styles.altRow,
                     ]}
                   >
-                    {/* Sıra numarası (madalya renkli) */}
+                    {/* Sıra numarası (renkli madalya) */}
                     <Text
                       style={[
                         styles.rank,

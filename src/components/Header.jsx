@@ -12,14 +12,12 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 // -------------------------------------------------------
-// Header bileşeni
-//
-// Props:
-//   score        → oyuncunun anlık toplam puanı
-//   highScore    → tüm zamanların en yüksek skoru
-//   targetNumber → o an hedeflenmesi gereken sayı
-//   wrongCount   → kaç kez yanlış seçim yapıldı (0, 1, 2, 3)
-//   dropInterval → bloğun kaç saniyede bir düştüğü (1-5 arası)
+// Header bileşenleri
+//   score        : oyuncunun anlık toplam puanı
+//   highScore    : tüm zamanların en yüksek skoru
+//   targetNumber : o an hedeflenmesi gereken sayı
+//   wrongCount   : kaç kez yanlış seçim yapıldı (0, 1, 2, 3)
+//   dropInterval : bloğun kaç saniyede bir düştüğü (1-5 arası)
 // -------------------------------------------------------
 const Header = ({
   score = 0,
@@ -39,7 +37,7 @@ const Header = ({
 
   // -------------------------------------------------------
   // Hız barının rengini belirle:
-  // yavaş → yeşil, orta → turuncu, hızlı → kırmızı
+  // yavaş : yeşil, orta : turuncu, hızlı : kırmızı
   // -------------------------------------------------------
   const speedColor =
     dropInterval >= 4 ? '#2ecc71' :  // yavaş: yeşil
@@ -168,7 +166,7 @@ const styles = StyleSheet.create({
 
   // Orta: hedef sayı kutusu
   targetBox: {
-    backgroundColor: '#e74c3c', // kırmızı — dikkat çekici
+    backgroundColor: '#e74c3c', // kırmızı 
     borderRadius: 10,
     paddingHorizontal: 20,
     paddingVertical: 8,

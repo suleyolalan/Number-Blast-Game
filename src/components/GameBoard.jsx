@@ -17,7 +17,7 @@ const CELL_SIZE = Math.floor(
 
 const GameBoard = ({ matrix = [], fallingBlocks = [], selectedCells = [], onCellPress }) => {
 
-  // Düşen blokları hızlı erişim için map'e çevir: "row_col" → block
+  // Düşen blokları hızlı erişim için map'e çevir: "row_col" : block
   const fallingMap = {};
   fallingBlocks.forEach(fb => {
     if (fb && fb.row >= 0 && fb.row < ROWS) {
@@ -76,3 +76,4 @@ const styles = StyleSheet.create({
 
 export default GameBoard;
 export { CELL_SIZE, COLS, ROWS };
+
