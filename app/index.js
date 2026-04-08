@@ -303,7 +303,7 @@ export default function Page() {
 
 const styles = StyleSheet.create({
   root:       { flex: 1, backgroundColor: '#0f0f23' },
-  buttonRow:  { flexDirection: 'row', padding: 12, gap: 8, backgroundColor: '#16213e' },
+  buttonRow:  { flexDirection: 'row', padding: 25, gap: 8, backgroundColor: '#16213e' },
   btn:        { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   confirmBtn: { backgroundColor: '#2ecc71' },
   leaderBtn:  { flex: 0, paddingHorizontal: 16, backgroundColor: '#f39c12' },
