@@ -11,7 +11,7 @@ import { canAddMoreBlocks } from './blockLimitRule';
  */
 export function isAlreadySelected(block, chain) {
   return chain.some(
-    (b) => b.row === block.row && b.col === block.col
+    (b) => b.row === block.row && b.col === block.col  // satır ve sütun eşleşme kontrolü yapılır
   );
 }
 
@@ -24,18 +24,18 @@ export function isAlreadySelected(block, chain) {
  */
 export function addBlockToChain(block, chain) {
   if (isAlreadySelected(block, chain)) {
-    return { success: false, chain, reason: 'Blok zaten seçili' };
+    return { success: false, chain, reason: 'Blok zaten seçili' }; // aynı blok tekrar seçilemez
   }
 
   if (!isAdjacentToChain(block, chain)) {
-    return { success: false, chain, reason: 'Blok komşu değil' };
+    return { success: false, chain, reason: 'Blok komşu değil' }; //yeni blok mevcut bloka komşu değilse eklenmez
   }
 
   if (!canAddMoreBlocks(chain)) {
-    return { success: false, chain, reason: 'Maksimum 4 blok seçilebilir' };
+    return { success: false, chain, reason: 'Maksimum 4 blok seçilebilir' }; // chain limit ölçülür, max blok sayısı 4 tür.
   }
 
-  return { success: true, chain: [...chain, block] };
+  return { success: true, chain: [...chain, block] }; // yeni blok eklenir, güncellenmiş chain döner.
 }
 
 /**
@@ -43,5 +43,5 @@ export function addBlockToChain(block, chain) {
  * @returns {Array}
  */
 export function resetChain() {
-  return [];
+  return []; 
 }
