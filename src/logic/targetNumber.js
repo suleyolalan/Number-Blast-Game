@@ -64,7 +64,7 @@ export function isTargetReachable(grid, target) {
   return false;
 }
 
-export function refreshTarget(grid) {
+export function refreshTarget(grid, currentTarget = null) {
   let target;
   let attempts = 0;
   const MAX_ATTEMPTS = 100;
@@ -78,12 +78,12 @@ export function refreshTarget(grid) {
       for (let r = 0; r < grid.length; r++) {
         for (let c = 0; c < grid[0].length; c++) {
           const num = getCellNumber(grid[r][c]);
-          if (num !== null) return num;
+          if (num !== null  && num !== currentTarget) return num;
         }
       }
       return 2;
     }
-  } while (!isTargetReachable(grid, target));
+  } while (!isTargetReachable(grid, target || target === currentTarget));
 
   return target;
 }
