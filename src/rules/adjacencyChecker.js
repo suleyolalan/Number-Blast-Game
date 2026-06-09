@@ -26,9 +26,9 @@ export function isAdjacent(blockA, blockB) {
  * @returns {boolean}
  */
 export function isAdjacentToChain(newBlock, chain) {
-  
   // İlk blok her zaman eklenebilir ve zincir boşsa true döner(komşuluk kontrolü olmaz)
   if (chain.length === 0) return true;
 
-  return chain.some(block => isAdjacent(newBlock, block));
-}
+  const lastBlock = chain[chain.length - 1]; // ← sadece son eleman
+
+  return isAdjacent(newBlock, lastBlock);
