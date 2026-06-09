@@ -1,3 +1,4 @@
+// ─── Renk ve Puan Tabloları ──────────────────────────────────
 
 export const NUMBER_COLORS = {
   1: '#FF4444', // Kırmızı
@@ -11,7 +12,6 @@ export const NUMBER_COLORS = {
   9: '#8B0000', // Koyu Kırmızı
 };
 
-// Puan tablosu (Section 5'e göre)
 export const SCORE_TABLE = {
   1: 1,
   2: 2,
@@ -24,19 +24,20 @@ export const SCORE_TABLE = {
   9: 20,
 };
 
+// ─── Temel Blok Üretici ──────────────────────────────────────
+
 /**
  * Tek bir blok nesnesi oluşturur.
- * @param {number} row - Bloğun bulunduğu satır indeksi
- * @param {number} col - Bloğun bulunduğu sütun indeksi
- * @param {number|null} value - Belirli bir değer atanacaksa (null ise rastgele)
- * @returns {Object} Blok nesnesi
+ * @param {number} row   - Satır indeksi
+ * @param {number} col   - Sütun indeksi
+ * @param {number|null} value - Belirli değer (null ise rastgele)
  */
 export function createBlock(row, col, value = null) {
   const number = value !== null ? value : getRandomNumber();
   return {
-    id: `block_${row}_${col}_${Date.now()}_${Math.random()}`,
+    id:         `block_${row}_${col}_${Date.now()}_${Math.random()}`,
     number,
-    color: NUMBER_COLORS[number],
+    color:      NUMBER_COLORS[number],
     scoreValue: SCORE_TABLE[number],
     row,
     col,
@@ -45,37 +46,54 @@ export function createBlock(row, col, value = null) {
 }
 
 /**
- * 1 ile 9 arasında rastgele bir tam sayı döner.
- * @returns {number}
+ * 1–9 arası rastgele tam sayı döner.
  */
 export function getRandomNumber() {
   return Math.floor(Math.random() * 9) + 1;
 }
 
+// ─── Spawn Fonksiyonları ─────────────────────────────────────
+
 /**
- * Belirli bir sütun için üstten düşecek yeni bir blok oluşturur.
- * Blok başlangıçta satır -1'de (ekran dışında üstte) konumlandırılır.
- * @param {number} col - Sütun indeksi
- * @returns {Object} Yeni blok nesnesi
+ * Belirli sütun için ekran dışından (row: -1) düşecek blok üretir.
+ *
+ * App.js bağlantısı:
+ *   createFallingBlockForColumn(col) → spawnBlockForColumn(col) çağırır
  */
 export function spawnBlockForColumn(col) {
   return createBlock(-1, col);
 }
 
 /**
- * Bir satır için tüm sütunlarda yeni bloklar oluşturur (ceza mekanizması veya başlangıç için).
- * @param {number} row - Satır indeksi
- * @param {number} cols - Toplam sütun sayısı (varsayılan 8)
- * @returns {Array<Object>} Blok dizisi
+ * Ceza mekanizması: tüm sütunlarda aynı anda bir satır oluşturur.
+ *
+ * TEST NOTLARI:
+ *   - 8 blok döner (COLS kadar) ✓
+ *   - Her bloğun col değeri 0..7 sırasıyla atanır ✓
+ *   - row parametresi doğru set edilir — App.js'te row: 0 olarak eklenir ✓
+ *   - Her blok bağımsız id alır (id çakışması yok) ✓
+ *
+ * App.js bağlantısı (HEAD branch):
+ *   shouldPenalize → spawnFullRow(0) → [newRow, ...prev.slice(0, ROWS - 1)]
+ *
+ * App.js bağlantısı (9ed879d branch):
+ *   shouldPenalize → spawnRowOfFallingBlocks(COLS) → map ile row:0 atanır
+ *
+ * @param {number} row  - Ceza satırının yerleştirileceği satır indeksi (genellikle 0)
+ * @param {number} cols - Sütun sayısı (varsayılan 8)
  */
 export function spawnFullRow(row, cols = 8) {
   return Array.from({ length: cols }, (_, col) => createBlock(row, col));
 }
 
 /**
- * Tüm sütunlar için üstten düşecek blokları hazırlar.
- * @param {number} cols - Toplam sütun sayısı (varsayılan 8)
- * @returns {Array<Object>} Her sütun için bir blok içeren dizi
+ * Tüm sütunlar için üstten düşecek blokları hazırlar (row: -1).
+ * spawnFullRow'dan farkı: bloklar ekran dışından başlar, animasyonlu iner.
+ *
+ * App.js bağlantısı (9ed879d branch):
+ *   spawnRowOfFallingBlocks(COLS) → .map((b, col) => ({ ...b, row: 0, col }))
+ *
+ * @param {number} cols - Sütun sayısı (varsayılan 8)
  */
 export function spawnRowOfFallingBlocks(cols = 8) {
   return Array.from({ length: cols }, (_, col) => spawnBlockForColumn(col));
