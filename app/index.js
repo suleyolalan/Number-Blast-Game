@@ -20,8 +20,8 @@ import ScoreBoard from '../src/components/ScoreBoard';
 import { isChainLengthValid } from '../src/rules/blockLimitRule';
 import { addBlockToChain, resetChain } from '../src/rules/selectionChain';
 
+// matrixEngine'den calculateSelectionScore çıkarıldı, yerine scoreTable modülü eklendi
 import {
-  calculateSelectionScore,
   COLS,
   createInitialMatrix,
   getNextFallingBlock,
@@ -32,7 +32,9 @@ import {
   validateMove,
 } from '../src/matrix/matrixEngine';
 
-import { getDropIntervalSeconds } from '../src/logic/speedManager';
+// Yeni entegrasyonlar
+import { calculateTotalScore } from '../src/logic/scoreTable';
+import { getDropIntervalSeconds, getStepInterval } from '../src/logic/speedManager';
 import { refreshTarget } from '../src/logic/targetNumber';
 import { createWrongMoveCounter, handleWrongMove } from '../src/logic/wrongMoveCounter';
 import { createColumnQueue } from '../src/matrix/blockFall';
@@ -82,7 +84,7 @@ export default function Page() {
   const gameOverRef    = useRef(false);
   const doGameOverRef  = useRef(null);
   const colQueue       = useRef(createColumnQueue());
-  const stepTimer      = useRef(null);       // 500ms adım timer'ı
+  const stepTimer      = useRef(null);       // adım timer'ı
 
   useEffect(() => { matrixRef.current  = matrix; }, [matrix]);
   useEffect(() => { scoreRef.current   = score;  }, [score]);
@@ -113,7 +115,9 @@ export default function Page() {
     fallingRef.current = newB;
     setFallingBlock(newB);
 
-    // 1000ms'de bir adım aşağı in
+    // DELEGASYON: Adım hızı doğrudan speedManager'dan çekilir
+    const currentStepMs = getStepInterval(scoreRef.current, ROWS);
+
     clearInterval(stepTimer.current);
     stepTimer.current = setInterval(() => {
       if (gameOverRef.current) { clearInterval(stepTimer.current); return; }
@@ -144,7 +148,7 @@ export default function Page() {
       }
 
       spawnNextBlock();
-    }, 1000);
+    }, currentStepMs); // speedManager'dan gelen saf milisaniye değeri
   }, []);
 
   // ── İlk hedef + ilk blok ─────────────────────────────────
@@ -181,7 +185,8 @@ export default function Page() {
     const { isValid } = validateMove(chain, targetNumber);
 
     if (isValid) {
-      const points   = calculateSelectionScore(chain);
+      // Puan hesabı scoreTable üzerinden dinamik olarak yapılır
+      const points   = calculateTotalScore(chain);
       const newScore = score + points;
       const newMatrix = removeBlocksAndApplyGravity(matrixRef.current, chain);
 

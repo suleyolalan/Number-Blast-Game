@@ -1,70 +1,75 @@
-
-// Bu dosya yanlış hamle sayacını yönetir ve ceza mekanizmasını tetikler.
+// wrongMoveCounter.js — Yanlış hamle sayacını yönetir ve ceza mekanizmasını tetikler.
 
 // Kaç yanlış hamlede ceza uygulanacağı
 const MAX_WRONG_MOVES = 3;
 
-/* Yanlış hamle sayacının başlangıç durumunu oluşturur.
-Sayaç sıfırdan başlar, ceza durumu false olur. */
-
+/**
+ * Yanlış hamle sayacının başlangıç durumunu oluşturur.
+ * Sayaç sıfırdan başlar, ceza durumu false olur.
+ */
 export function createWrongMoveCounter() {
-  // Sayacı sıfır, ceza durumunu false olarak başlat
   return {
-    count: 0, // Yanlış hamle sayısı 
-    isPenalty: false, // Ceza durumu 
+    count: 0,        // Yanlış hamle sayısı
+    isPenalty: false, // Ceza durumu
   };
 }
 
-// Yanlış hamle yapıldığında sayacı 1 artırır.
-/* Sayaç MAX_WRONG_MOVES'a ulaştığında isPenalty true olur.
- Orijinal counter'ı değiştirmez, yeni bir obje döndürür.*/
-
+/**
+ * Yanlış hamle yapıldığında sayacı 1 artırır.
+ * Sayaç MAX_WRONG_MOVES'a ulaştığında isPenalty true olur.
+ * Orijinal counter'ı değiştirmez, yeni bir obje döndürür.
+ * @param {object} counter - Mevcut sayaç objesi
+ * @returns {object} Güncellenmiş sayaç objesi
+ */
 export function incrementWrongMove(counter) {
-  const newCount = counter.count + 1;   // Mevcut sayaca 1 ekle
-  const isPenalty = newCount >= MAX_WRONG_MOVES;   // Yeni sayaç MAX_WRONG_MOVES'a ulaştı mı kontrol et
+  const newCount = counter.count + 1;
+  const isPenalty = newCount >= MAX_WRONG_MOVES;
 
-  // Güncellenmiş yeni objeyi döndür — orijinali bozma
   return {
     count: newCount,
     isPenalty: isPenalty,
   };
 }
 
-// Ceza uygulandıktan sonra sayacı sıfırlar.
-// Ceza tetiklendiğinde App.jsx bu fonksiyonu çağırır.
-
-export function resetWrongMoveCounter() { // Sayacı başlangıç durumuna döndür
+/**
+ * Ceza uygulandıktan sonra sayacı sıfırlar.
+ * @returns {object} Sıfırlanmış sayaç objesi
+ */
+export function resetWrongMoveCounter() {
   return {
     count: 0,
     isPenalty: false,
   };
 }
 
-// Cezaya kaç yanlış hamle kaldığını döndürür.
-
+/**
+ * Cezaya kaç yanlış hamle kaldığını döndürür.
+ * @param {object} counter - Mevcut sayaç objesi
+ * @returns {number} Kalan yanlış hamle hakkı (min: 0)
+ */
 export function getRemainingMoves(counter) {
-  const remaining = MAX_WRONG_MOVES - counter.count;   // MAX_WRONG_MOVES'dan mevcut sayacı çıkar
-
-  // Negatif olmasın , minimum 0 döndür
+  const remaining = MAX_WRONG_MOVES - counter.count;
   return Math.max(0, remaining);
 }
 
-// Yanlış hamlenin tüm akışını yönetir.
-// Sayacı artırır, ceza durumunu kontrol eder.
-//  App.jsx sadece bu fonksiyonu çağırır, diğerleri yardımcıdır.
-
+/**
+ * Yanlış hamlenin tüm akışını yönetir.
+ * Sayacı artırır, ceza durumunu kontrol eder.
+ * App.jsx sadece bu fonksiyonu çağırır; diğerleri yardımcıdır.
+ * @param {object} counter - Mevcut sayaç objesi
+ * @returns {{ counter: object, shouldPenalize: boolean }}
+ */
 export function handleWrongMove(counter) {
-  const updatedCounter = incrementWrongMove(counter);   // Sayacı artır
+  const updatedCounter = incrementWrongMove(counter);
 
-  // Ceza tetiklendiyse sayacı sıfırla ve ceza uygula
   if (updatedCounter.isPenalty) {
+    // Ceza tetiklendi → sayacı sıfırla, App'e ceza sinyali gönder
     return {
-      counter: resetWrongMoveCounter(), // Sayacı sıfırla — ceza uygulandı, yeni tura başla
-      shouldPenalize: true, // App.jsx'e ceza uygula sinyali gönder
+      counter: resetWrongMoveCounter(),
+      shouldPenalize: true,
     };
   }
 
-  // Ceza tetiklenmediyse sadece güncellenmiş sayacı döndür
   return {
     counter: updatedCounter,
     shouldPenalize: false,

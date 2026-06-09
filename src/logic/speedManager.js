@@ -1,39 +1,38 @@
-// speedManager.js — Blok düşme hızını yönetir
-// PDF'e göre: Her 100 puanda 1 saniye azalır, min 1 saniye
+// src/logic/speedManager.js
+// Oyuncu puanına göre blok düşme aralığını (interval) belirler
 
-const INITIAL_INTERVAL = 5000; // 5 saniye (ms cinsinden)
-const MIN_INTERVAL = 1000;     // 1 saniye minimum
-const INTERVAL_STEP = 1000;    // Her 100 puanda 1 saniye azalır
-const SCORE_STEP = 100;        // Hız artış eşiği
+const INITIAL_SPEED_MS = 5000; 
+const MINIMUM_SPEED_MS = 1000; 
+const SPEED_DECREMENT_MS = 1000; 
+const SCORE_TIER = 100; 
 
 /**
- * Toplam puana göre blok düşme süresini (ms) döndürür.
- * @param {number} score - Oyuncunun toplam puanı
- * @returns {number} Düşme süresi (ms)
+ * Toplam düşme süresini milisaniye (ms) cinsinden hesaplar.
  */
 export function getDropInterval(score) {
-  const tier = Math.floor(score / SCORE_STEP); // Kaçıncı hız kademesi
-  const interval = INITIAL_INTERVAL - tier * INTERVAL_STEP;
-  return Math.max(interval, MIN_INTERVAL);
+  if (typeof score !== 'number' || score < 0) return INITIAL_SPEED_MS;
+  
+  const tier = Math.floor(score / SCORE_TIER);
+  const speedReduction = tier * SPEED_DECREMENT_MS;
+  const currentSpeed = INITIAL_SPEED_MS - speedReduction;
+  
+  return Math.max(currentSpeed, MINIMUM_SPEED_MS);
 }
 
 /**
- * Saniye cinsinden düşme süresini döndürür (Header'da gösterim için).
- * @param {number} score
- * @returns {number} Saniye (1-5)
+ * Arayüz (Header) gösterimi için saniye (sn) cinsinden güncel hızı hesaplar.
  */
 export function getDropIntervalSeconds(score) {
   return getDropInterval(score) / 1000;
 }
 
 /**
- * Bir sonraki hız artışı için gereken puan eşiğini döndürür.
- * @param {number} score
- * @returns {number|null} Eşik puanı (maksimum hızdaysa null)
+ * Bloğun tek bir satırı geçme süresini (adım hızını) milisaniye cinsinden hesaplar.
+ * @param {number} score - Güncel puan
+ * @param {number} rows - Matrisin toplam satır sayısı
+ * @returns {number} setInterval için milisaniye değeri
  */
-export function getNextSpeedThreshold(score) {
-  const interval = getDropInterval(score);
-  if (interval <= MIN_INTERVAL) return null; // Zaten max hız
-  const tier = Math.floor(score / SCORE_STEP);
-  return (tier + 1) * SCORE_STEP;
+export function getStepInterval(score, rows) {
+  const totalTime = getDropInterval(score);
+  return Math.floor(totalTime / Math.max(rows, 1)); // 0'a bölünme ihtimaline karşı güvenlik önlemi
 }
