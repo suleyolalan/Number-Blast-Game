@@ -31,4 +31,4 @@ export function isAdjacentToChain(newBlock, chain) {
 
   const lastBlock = chain[chain.length - 1]; // ← sadece son eleman
 
-  return isAdjacent(newBlock, lastBlock);
+  return isAdjacent(newBlock, lastBlock);}
