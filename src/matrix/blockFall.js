@@ -146,31 +146,20 @@ export function createFallingBlockForColumn(col) {
  *   colQueue.current.next()  → spawnNextBlock içinde
  *   colQueue.current.reset() → handleNewGame / handleRestart içinde
  */
+/**
+ * Tam rastgele (bağımsız) sütun kuyruğu oluşturur.
+ * Geçmiş seçimleri hafızada tutmaz, her çağrıda 0 ile (COLS - 1) arasında rastgele indeks döner.
+ */
 export function createColumnQueue() {
-  let queue = [];
-
-  function shuffle(arr) {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
-
-  function refill() {
-    queue = shuffle(Array.from({ length: COLS }, (_, i) => i));
-  }
-
-  refill();
-
   return {
     next() {
-      if (queue.length === 0) refill();
-      return queue.shift();
+      // Her blok için geçmişten bağımsız olarak 0-7 (COLS) arası rastgele bir sütun indeksi üretilir.
+      return Math.floor(Math.random() * COLS);
     },
     reset() {
-      refill();
+      // Sistem tam rastgeleliğe geçirildiği için kuyruk hafızası (state) bulunmamaktadır.
+      // app/index.js içerisindeki reset() çağrılarının çalışma zamanı hatası (Runtime Error) 
+      // vermemesi adına bu fonksiyon yapısal olarak korunmuş, ancak içi boş bırakılmıştır.
     },
   };
 }

@@ -1,5 +1,5 @@
 // ============================================================
-// app/index.js — Ana Oyun Dosyası
+// app/index.js — Ana Oyun Dosyası (Çözüm B - Dinamik Düşüş)
 // ============================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -20,7 +20,6 @@ import ScoreBoard from '../src/components/ScoreBoard';
 import { isChainLengthValid } from '../src/rules/blockLimitRule';
 import { addBlockToChain, resetChain } from '../src/rules/selectionChain';
 
-// matrixEngine'den calculateSelectionScore çıkarıldı, yerine scoreTable modülü eklendi
 import {
   COLS,
   createInitialMatrix,
@@ -32,12 +31,12 @@ import {
   validateMove,
 } from '../src/matrix/matrixEngine';
 
-// Yeni entegrasyonlar
 import { calculateTotalScore } from '../src/logic/scoreTable';
 import { getDropIntervalSeconds, getStepInterval } from '../src/logic/speedManager';
 import { refreshTarget } from '../src/logic/targetNumber';
 import { createWrongMoveCounter, handleWrongMove } from '../src/logic/wrongMoveCounter';
 import { createColumnQueue } from '../src/matrix/blockFall';
+// Ceza satırını ekran dışından başlatmak için spawnRowOfFallingBlocks içe aktarılır
 import { spawnRowOfFallingBlocks } from '../src/matrix/blockSpawner';
 
 // ── refreshTarget guard ───────────────────────────────────────
@@ -49,23 +48,22 @@ function safeTarget(mat, currentTarget = null) {
     else if (raw && typeof raw === 'object' && typeof raw.number === 'number') result = raw.number;
     else {
       const n = Number(raw);
-      result = (!isNaN(n) && n > 0) ? n : Math.floor(Math.random() * 19) + 2;
+      result = (!isNaN(n) && n > 0) ? n : Math.floor(Math.random() * 35) + 2;
     }
   } catch (_) {
-    result = Math.floor(Math.random() * 19) + 2;
+    result = Math.floor(Math.random() * 35) + 2;
   }
   if (currentTarget !== null && result === currentTarget) {
     result = result >= 36 ? 2 : result + 1;
   }
   return result;
 }
-
 // ─────────────────────────────────────────────────────────────
 
 export default function Page() {
 
   const [matrix,             setMatrix]             = useState(() => createInitialMatrix());
-  const [fallingBlock,       setFallingBlock]       = useState(null);
+  const [fallingPayload,     setFallingPayload]     = useState([]); // Tek blok veya satır dizisi
   const [chain,              setChain]              = useState([]);
   const [score,              setScore]              = useState(0);
   const [highScore,          setHighScore]          = useState(0);
@@ -79,12 +77,13 @@ export default function Page() {
 
   // ── Ref'ler ───────────────────────────────────────────────
   const matrixRef      = useRef(matrix);
-  const fallingRef     = useRef(null);       // şu an düşen blok
+  const fallingRef     = useRef([]);         // şu an düşen blok veya blok dizisi
   const scoreRef       = useRef(0);
   const gameOverRef    = useRef(false);
   const doGameOverRef  = useRef(null);
   const colQueue       = useRef(createColumnQueue());
-  const stepTimer      = useRef(null);       // adım timer'ı
+  const stepTimer      = useRef(null);
+  const penaltyQueue   = useRef(false);      // Ceza satırının düşüş sırasında olup olmadığını takip eder
 
   useEffect(() => { matrixRef.current  = matrix; }, [matrix]);
   useEffect(() => { scoreRef.current   = score;  }, [score]);
@@ -107,57 +106,87 @@ export default function Page() {
 
   useEffect(() => { doGameOverRef.current = doGameOver; }, [doGameOver]);
 
-  // ── Yeni blok spawn et, adım timer'ını başlat ─────────────
-  const spawnNextBlock = useCallback(() => {
+  // ── Dinamik Animasyon Akışı (Düşme Mekanizması) ─────────────
+  const spawnNextPayload = useCallback(() => {
     if (gameOverRef.current) return;
-    const col  = colQueue.current.next();
-    const newB = getNextFallingBlock(col);
-    fallingRef.current = newB;
-    setFallingBlock(newB);
 
-    // DELEGASYON: Adım hızı doğrudan speedManager'dan çekilir
+    let initialPayload = [];
+
+    // Eğer sırada bekleyen bir ceza varsa, tüm sütunlardan blok indirilir (Çözüm B)
+    if (penaltyQueue.current) {
+      initialPayload = spawnRowOfFallingBlocks(COLS);
+      penaltyQueue.current = false; // Ceza uygulandı, kuyruğu boşalt
+    } else {
+      // Normal akış: Tek blok indir
+      const col  = colQueue.current.next();
+      initialPayload = [getNextFallingBlock(col)];
+    }
+
+    fallingRef.current = initialPayload;
+    setFallingPayload(initialPayload);
+
     const currentStepMs = getStepInterval(scoreRef.current, ROWS);
-
     clearInterval(stepTimer.current);
+
     stepTimer.current = setInterval(() => {
       if (gameOverRef.current) { clearInterval(stepTimer.current); return; }
 
-      const currentMatrix  = matrixRef.current;
-      const currentFalling = fallingRef.current;
-      if (!currentFalling) { clearInterval(stepTimer.current); return; }
+      let currentMatrix = matrixRef.current;
+      const currentPayload = fallingRef.current;
+      if (currentPayload.length === 0) { clearInterval(stepTimer.current); return; }
 
-      const { block, landed } = moveBlockDown(currentMatrix, currentFalling);
+      let allLanded = true;
+      const movedPayload = [];
 
-      if (!landed) {
-        // Bir adım aşağı
-        fallingRef.current = block;
-        setFallingBlock({ ...block });
-        return;
+      // Düşen kümedeki her bir blok (tek blok veya satır) için yerçekimini işlet
+      for (const block of currentPayload) {
+        // Zaten indi işaretlenen (landed=true) bloklar adım atmaz
+        if (block._landed) {
+          movedPayload.push(block);
+          continue;
+        }
+
+        const { block: movedBlock, landed } = moveBlockDown(currentMatrix, block);
+        
+        if (landed) {
+          // Blok indiğinde matrise anında yazdırılır ki aynı anda inen diğer bloklar çarpışma testi yapabilsin
+          const result = placeBlock(currentMatrix, movedBlock);
+          currentMatrix = result.matrix;
+          
+          if (result.gameOver) {
+            doGameOverRef.current();
+            return;
+          }
+          // Düştüğünü işaretle ve kümede tut
+          movedPayload.push({ ...movedBlock, _landed: true });
+        } else {
+          // Hâlâ iniyorsa matrise eklenmez, adım atılır
+          allLanded = false;
+          movedPayload.push(movedBlock);
+        }
       }
 
-      // Blok indi → matrise yerleştir
-      clearInterval(stepTimer.current);
-      const result = placeBlock(currentMatrix, block);
-      setMatrix(result.matrix);
-      fallingRef.current = null;
-      setFallingBlock(null);
-
-      if (result.gameOver) {
-        doGameOverRef.current();
-        return;
+      // Matristeki anlık güncellemeleri duruma yansıt (Ceza satırı iniyorsa önemlidir)
+      setMatrix(currentMatrix);
+      
+      if (!allLanded) {
+        fallingRef.current = movedPayload;
+        setFallingPayload(movedPayload);
+      } else {
+        // Kümedeki tüm cisimler zemine veya birbirine ulaştı
+        clearInterval(stepTimer.current);
+        fallingRef.current = [];
+        setFallingPayload([]);
+        spawnNextPayload();
       }
-
-      spawnNextBlock();
-    }, currentStepMs); // speedManager'dan gelen saf milisaniye değeri
+    }, currentStepMs);
   }, []);
 
   // ── İlk hedef + ilk blok ─────────────────────────────────
   useEffect(() => {
     setTargetNumber(safeTarget(matrix));
-    spawnNextBlock();
-    return () => {
-      clearInterval(stepTimer.current);
-    };
+    spawnNextPayload();
+    return () => { clearInterval(stepTimer.current); };
   }, []); // eslint-disable-line
 
   // ── Hücreye Basılınca ─────────────────────────────────────
@@ -168,13 +197,11 @@ export default function Page() {
     const block = typeof cell === 'object'
       ? cell
       : { row, col, number: cell, value: cell, id: `${row}_${col}` };
-    // Seçili bloğa tekrar basılınca zincirden çıkar
     const isAlreadySelected = chain.some(b => b.row === row && b.col === col);
     if (isAlreadySelected) {
       setChain(prev => prev.filter(b => !(b.row === row && b.col === col)));
       return;
     }
-    
     const result = addBlockToChain(block, chain);
     if (result.success) setChain(result.chain);
   }, [chain, gameOver]);
@@ -185,7 +212,6 @@ export default function Page() {
     const { isValid } = validateMove(chain, targetNumber);
 
     if (isValid) {
-      // Puan hesabı scoreTable üzerinden dinamik olarak yapılır
       const points   = calculateTotalScore(chain);
       const newScore = score + points;
       const newMatrix = removeBlocksAndApplyGravity(matrixRef.current, chain);
@@ -206,14 +232,9 @@ export default function Page() {
 
       if (result.shouldPenalize) {
         setWrongCounter({ count: 3, isPenalty: true });
+        // Ceza kuyruğa eklendi. Mevcut blok düştükten hemen sonra ceza satırı havadan inecek (Çözüm B)
+        penaltyQueue.current = true; 
         setTimeout(() => setWrongCounter(createWrongMoveCounter()), 500);
-        // Ceza: tüm sütunlardan yeni blok indir
-        setMatrix(prev => {
-          const penaltyRow = spawnRowOfFallingBlocks(COLS).map((b, col) => ({
-            ...b, row: 0, col,
-          }));
-          return [penaltyRow, ...prev.slice(0, ROWS - 1)];
-        });
       } else {
         setWrongCounter(result.counter);
       }
@@ -224,12 +245,13 @@ export default function Page() {
   const handleNewGame = useCallback(() => {
     clearInterval(stepTimer.current);
     gameOverRef.current = false;
-    fallingRef.current  = null;
+    fallingRef.current  = [];
+    penaltyQueue.current = false;
     colQueue.current.reset();
 
     const newMatrix = createInitialMatrix();
     setMatrix(newMatrix);
-    setFallingBlock(null);
+    setFallingPayload([]);
     setChain(resetChain());
     setScore(0);
     setTotalMoves(0);
@@ -239,21 +261,23 @@ export default function Page() {
     setGameOver(false);
     setShowLeaderboard(false);
 
-    // Kısa gecikme sonra ilk bloğu başlat
-    setTimeout(spawnNextBlock, 500);
-  }, [spawnNextBlock]);
+    setTimeout(spawnNextPayload, 500);
+  }, [spawnNextPayload]);
 
   // ── Render ────────────────────────────────────────────────
   const selectedCells  = chain.map(b => [b.row, b.col]);
   const selectedValues = chain.map(b => b.number ?? b.value ?? 0);
 
-  // Düşen bloğu display matrisine ekle (sadece görsel)
   const displayMatrix = matrixRef.current.map(row =>
     row.map(cell => (cell ? cell.number : null))
   );
-  if (fallingBlock && fallingBlock.row >= 0 && fallingBlock.row < ROWS) {
-    displayMatrix[fallingBlock.row][fallingBlock.col] = fallingBlock.number;
-  }
+  
+  // Düşen kümeyi (tek blok veya 8'li satır) ekranda göster
+  fallingPayload.forEach(block => {
+    if (!block._landed && block.row >= 0 && block.row < ROWS) {
+      displayMatrix[block.row][block.col] = block.number;
+    }
+  });
 
   return (
     <SafeAreaView style={styles.root}>
