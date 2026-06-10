@@ -4,17 +4,7 @@
 
 import { StyleSheet, Text, View } from 'react-native';
 
-const SCORE_TABLE = {
-  1: 1,
-  2: 2,
-  3: 3,
-  4: 5,
-  5: 7,
-  6: 9,
-  7: 12,
-  8: 15,
-  9: 20,
-};
+import SCORE_TABLE from '../logic/scoreTable.js'; // Her sayının puan karşılığı
 
 // -------------------------------------------------------
 // ScoreBoard bileşenleri
