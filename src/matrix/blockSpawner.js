@@ -1,7 +1,20 @@
 // ─── Renk ve Puan Tabloları ──────────────────────────────────
 
-import { NUMBER_COLORS } from './colorTable.js';
-import SCORE_TABLE from './scoreTable.js';
+import SCORE_TABLE from '../logic/scoreTable.js'; // Her sayının puan karşılığı
+
+// Her sayının blok rengi (1-9)
+
+export const NUMBER_COLORS = {
+  1: '#FF4444', // Kırmızı
+  2: '#FF8C00', // Turuncu
+  3: '#FFD700', // Sarı
+  4: '#32CD32', // Yeşil
+  5: '#1E90FF', // Mavi
+  6: '#9370DB', // Mor
+  7: '#FF69B4', // Pembe
+  8: '#20B2AA', // Teal
+  9: '#8B0000', // Koyu Kırmızı
+};
 
 // ─── Temel Blok Üretici ──────────────────────────────────────
 

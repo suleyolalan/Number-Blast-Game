@@ -11,6 +11,7 @@ const SCORE_TABLE = {
   8: 15,
   9: 20,
 };
+export default SCORE_TABLE;
 
 /**
  * Seçilen blokların (chain) toplam puan değerini hesaplar.
